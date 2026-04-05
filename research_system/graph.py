@@ -13,6 +13,7 @@ from research_system.nodes import (
     node_synthesize,
     should_revise,
 )
+from research_system.execution_trace import merge_trace_from_stream
 from research_system.state import ResearchState
 
 load_dotenv()
@@ -44,8 +45,14 @@ def build_graph() -> CompiledStateGraph:
 def run_research(
     topic: str,
     max_iterations: int = 3,
+    *,
+    collect_trace: bool = False,
 ) -> dict[str, Any]:
-    """Run the full LangGraph pipeline and return the final state dict."""
+    """Run the full LangGraph pipeline and return the final state dict.
+
+    If collect_trace is True, the returned dict includes ``execution_trace``: a list of
+    per-node records with inputs, outputs, and verification checks for UI display.
+    """
     graph = build_graph()
     initial: ResearchState = {
         "topic": topic,
@@ -61,4 +68,9 @@ def run_research(
         "final_report": "",
         "error": "",
     }
-    return dict(graph.invoke(initial))
+    if not collect_trace:
+        return dict(graph.invoke(initial))
+    running, trace = merge_trace_from_stream(graph, initial)
+    out = dict(running)
+    out["execution_trace"] = trace
+    return out
