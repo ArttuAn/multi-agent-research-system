@@ -1,5 +1,7 @@
 # Multi-Agent Research System (LangGraph)
 
+**Repository:** [github.com/ArttuAn/multi-agent-research-system](https://github.com/ArttuAn/multi-agent-research-system)
+
 Stateful multi-agent research pipeline: **web search (Tavily)** → **academic papers (Semantic Scholar)** → **synthesized cited report (OpenAI)** → **critique agent** (structured hallucination check) with optional **revise loop**.
 
 Default demo topic: **“AI regulation in Europe 2026”** (edit freely in the UI).
