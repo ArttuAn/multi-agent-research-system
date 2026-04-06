@@ -42,7 +42,7 @@ def _step_record(node: str, before: dict[str, Any], partial: dict[str, Any]) -> 
         if err:
             outputs["state_error_note"] = _clip(err, 400)
         add_check("Input `topic` non-empty", bool(inputs["topic"]), "")
-        add_check("OpenAlex returned ≥1 work", len(papers) >= 1, f"{len(papers)} works")
+        add_check("OpenAlex returned ≥1 work", len(papers) >= 1, f"{len(papers)} works (0 is OK but weaker evidence)")
 
     elif node == "prepare_sources":
         wr = before.get("web_results") or []
@@ -117,5 +117,15 @@ def merge_trace_from_stream(
             if not isinstance(partial, dict):
                 continue
             trace.append(_step_record(str(node_name), running, partial))
-            running.update(partial)
+            _merge_partial(running, partial)
     return running, trace
+
+
+def _merge_partial(running: dict[str, Any], partial: dict[str, Any]) -> None:
+    """Apply node output; concatenate list reducers the same way LangGraph does."""
+    for k, v in partial.items():
+        if k == "prompt_trace" and isinstance(v, list):
+            cur = list(running.get("prompt_trace") or [])
+            running["prompt_trace"] = cur + v
+        else:
+            running[k] = v

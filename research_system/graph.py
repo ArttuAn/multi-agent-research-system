@@ -67,6 +67,7 @@ def run_research(
         "max_iterations": max_iterations,
         "final_report": "",
         "error": "",
+        "prompt_trace": [],
     }
     if not collect_trace:
         return dict(graph.invoke(initial))

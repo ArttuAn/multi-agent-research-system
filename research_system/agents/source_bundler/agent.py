@@ -2,6 +2,9 @@ from typing import Any
 
 from langchain_core.runnables import RunnableLambda
 
+from research_system.agent_runtime.wrap import wrap_call
+from research_system.agents.source_bundler import guardrails as _g  # noqa: F401
+from research_system.agents.source_bundler import hooks as _h  # noqa: F401
 from research_system.state import ResearchState
 
 
@@ -21,11 +24,11 @@ def _build_source_index(state: ResearchState) -> str:
     return "\n\n".join(lines) if lines else "(no sources retrieved)"
 
 
-def _bundle(state: ResearchState) -> dict[str, Any]:
+def _core(state: ResearchState) -> dict[str, Any]:
     return {"source_index": _build_source_index(state)}
 
 
-source_bundler_agent = RunnableLambda(_bundle).with_config(
+source_bundler_agent = RunnableLambda(wrap_call("source_bundler", _core)).with_config(
     run_name="SourceBundlerAgent",
     tags=["multi-agent", "agent", "prepare", "no-llm"],
 )

@@ -12,3 +12,7 @@ build/
 .idea/
 .vscode/
 .streamlit/secrets.toml
+
+# Episodic agent memory (JSONL)
+data/agent_memory/
+data/fonts/

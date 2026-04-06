@@ -25,6 +25,8 @@ Orchestration is **LangGraph** (`research_system/graph.py`). Each graph node del
 
 Import from code: `from research_system.agents import web_research_agent, synthesis_agent, ...`.
 
+**Per-agent layout (skills, memory, hooks, guardrails):** see **[AGENTS.md](AGENTS.md)** and each `research_system/agents/*/AGENT.md`.
+
 ## Architecture
 
 ```mermaid
@@ -92,6 +94,7 @@ Create a **`.env`** file in the project root (it is gitignored). Use the variabl
 
 - `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENALEX_MAILTO` (your email; recommended for OpenAlex)
 - LangSmith: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, … or the equivalent `LANGCHAIN_*` names (see **LangSmith** section)
+- Optional: `AGENT_MEMORY_DIR` — directory for episodic JSONL store (default `data/agent_memory/` under the project)
 
 ## Live demo (Streamlit)
 
@@ -120,6 +123,23 @@ from research_system.graph import run_research
 state = run_research("AI regulation in Europe 2026", max_iterations=3)
 print(state["final_report"])
 ```
+
+### Prompt trace PDF (audit)
+
+Each run accumulates `state["prompt_trace"]`: per-step **before** (Tavily/OpenAlex request shape, exact synthesis/critique **system** + **human** strings) and **after** (results or model output previews). Export:
+
+```python
+from pathlib import Path
+
+from research_system.graph import run_research
+from research_system.prompt_trace_pdf import build_prompt_trace_pdf
+
+state = run_research("AI regulation in Europe 2026", max_iterations=3)
+pdf_bytes = build_prompt_trace_pdf(state["topic"], state.get("prompt_trace") or [])
+Path("trace.pdf").write_bytes(pdf_bytes)
+```
+
+The PDF builder tries to cache **DejaVu Sans** under `data/fonts/` (gitignored) for Unicode; if download fails, it falls back to Latin-1 with replacements.
 
 ## License
 

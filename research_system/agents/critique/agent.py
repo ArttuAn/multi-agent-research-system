@@ -2,20 +2,12 @@ from typing import Any
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
-from pydantic import BaseModel, Field
 
+from research_system.agent_runtime.wrap import wrap_call
+from research_system.agents.critique import guardrails as _g  # noqa: F401
+from research_system.agents.critique import hooks as _h  # noqa: F401
+from research_system.agents.critique.types import CritiqueResult
 from research_system.agents.model import get_chat_model
-
-
-class CritiqueResult(BaseModel):
-    approved: bool = Field(description="True if no unsupported or contradictory claims")
-    hallucination_risk: str = Field(description="low|medium|high")
-    issues: list[str] = Field(default_factory=list, description="Specific problems with citations or claims")
-    revision_guidance: str = Field(
-        default="",
-        description="Concrete edits if not approved; empty if approved",
-    )
-
 
 CRITIQUE_SYSTEM = """You are an independent fact-checker and editor.
 Compare the draft report to the SOURCE INDEX only.
@@ -39,11 +31,13 @@ def _critique_chain():
     return _chain
 
 
-def _invoke_critique(payload: dict[str, Any]) -> CritiqueResult:
-    return _critique_chain().invoke(payload)
+def _core(payload: dict[str, Any]) -> CritiqueResult:
+    return _critique_chain().invoke(
+        {"source_index": payload["source_index"], "draft": payload["draft"]}
+    )
 
 
-critique_agent = RunnableLambda(_invoke_critique).with_config(
+critique_agent = RunnableLambda(wrap_call("critique", _core)).with_config(
     run_name="CritiqueAgent",
     tags=["multi-agent", "agent", "llm", "quality", "hallucination"],
 )

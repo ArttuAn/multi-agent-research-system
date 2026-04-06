@@ -1,8 +1,13 @@
+from typing import Any
+
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda
 
+from research_system.agent_runtime.wrap import wrap_call
 from research_system.agents.model import get_chat_model
+from research_system.agents.synthesis import guardrails as _g  # noqa: F401
+from research_system.agents.synthesis import hooks as _h  # noqa: F401
 
 SYNTH_SYSTEM = """You are a senior policy and technology research analyst.
 Write a structured report that ONLY uses facts supported by the provided sources.
@@ -18,6 +23,7 @@ At the end, repeat each [Wn] and [Pm] with title and URL from the source index."
 
 SYNTH_HUMAN = """Topic: {topic}
 
+{episodic_memory_block}
 SOURCE INDEX (only allowed evidence):
 {source_index}
 {revision_notes}
@@ -35,18 +41,17 @@ _chain = None
 
 
 def _synthesis_chain():
-    """Lazy build so importing the package does not require OPENAI_API_KEY."""
     global _chain
     if _chain is None:
         _chain = _synth_prompt | get_chat_model() | StrOutputParser()
     return _chain
 
 
-def _invoke_synthesis(payload: dict) -> str:
+def _core(payload: dict[str, Any]) -> str:
     return _synthesis_chain().invoke(payload)
 
 
-synthesis_agent = RunnableLambda(_invoke_synthesis).with_config(
+synthesis_agent = RunnableLambda(wrap_call("synthesis", _core)).with_config(
     run_name="SynthesisAgent",
     tags=["multi-agent", "agent", "llm", "report"],
 )

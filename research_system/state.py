@@ -1,4 +1,5 @@
-from typing import TypedDict
+from operator import add
+from typing import Annotated, Any, TypedDict
 
 
 class WebHit(TypedDict, total=False):
@@ -29,3 +30,5 @@ class ResearchState(TypedDict, total=False):
     max_iterations: int
     final_report: str
     error: str
+    # Audit trail: each node appends one dict; LangGraph concatenates lists.
+    prompt_trace: Annotated[list[dict[str, Any]], add]
