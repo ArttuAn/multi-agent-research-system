@@ -116,12 +116,15 @@ def _inject_styles() -> None:
                 color: #c7d2fe !important;
             }
             .section-label {
-                font-size: 0.82rem;
-                font-weight: 600;
+                font-size: 0.74rem;
+                font-weight: 700;
                 text-transform: uppercase;
-                letter-spacing: 0.08em;
-                color: #64748b;
+                letter-spacing: 0.1em;
+                color: #6366f1;
                 margin: 1.5rem 0 0.5rem 0;
+                padding-left: 0.55rem;
+                border-left: 3px solid #6366f1;
+                display: block;
             }
             [data-testid="stMetricValue"] {
                 font-size: 1.95rem !important;
@@ -171,6 +174,78 @@ def _inject_styles() -> None:
                 border-color: #e2e8f0 !important;
                 background: #ffffff;
                 box-shadow: 0 1px 3px rgba(15,23,42,0.04);
+            }
+            /* Tech-stack badge pills (hero card) */
+            .badge-row {
+                margin-top: 0.95rem;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 0.38rem;
+            }
+            .badge {
+                display: inline-block;
+                font-size: 0.71rem;
+                font-weight: 600;
+                padding: 0.18rem 0.55rem;
+                border-radius: 99px;
+                background: rgba(255,255,255,0.13);
+                color: #e0e7ff;
+                border: 1px solid rgba(255,255,255,0.22);
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+            /* Sidebar environment status pills */
+            .env-pill {
+                display: flex;
+                align-items: center;
+                gap: 0.4rem;
+                padding: 0.26rem 0.7rem;
+                border-radius: 99px;
+                font-size: 0.84rem;
+                font-weight: 500;
+                margin-bottom: 0.3rem;
+                width: fit-content;
+                line-height: 1.4;
+            }
+            .env-pill.ok   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+            .env-pill.warn { background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+            .env-pill.off  { background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }
+            .env-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+            .env-pill.ok   .env-dot { background: #22c55e; }
+            .env-pill.warn .env-dot { background: #f97316; }
+            .env-pill.off  .env-dot { background: #94a3b8; }
+            /* Welcome / empty-state card */
+            .welcome-card {
+                background: linear-gradient(135deg, #f8faff 0%, #eff1ff 100%);
+                border: 1px solid #e0e7ff;
+                border-radius: 14px;
+                padding: 1.4rem 1.6rem;
+                margin: 0.25rem 0 1.25rem 0;
+            }
+            .welcome-card h3 {
+                font-size: 1.05rem;
+                font-weight: 600;
+                color: #3730a3;
+                margin: 0 0 0.6rem 0;
+            }
+            .welcome-card ol {
+                margin: 0;
+                padding-left: 1.4em;
+                color: #475569;
+                font-size: 0.97rem;
+            }
+            .welcome-card li { margin-bottom: 0.3rem; }
+            .welcome-card code {
+                background: #e0e7ff;
+                color: #3730a3;
+                padding: 0.1em 0.35em;
+                border-radius: 4px;
+                font-size: 0.88em;
+                font-family: 'JetBrains Mono', monospace;
+            }
+            /* Run-section input + button alignment */
+            div[data-testid="stHorizontalBlock"] > div:first-child [data-testid="stButton"] button[kind="primary"] {
+                height: 2.75rem;
             }
         </style>
         """,
@@ -400,12 +475,18 @@ def _sidebar_settings() -> tuple[int, bool, bool, str]:
     ls_ok = bool(
         os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY")
     )
-    st.sidebar.markdown(f"{_status_dot(t_ok)} **Tavily** — {'configured' if t_ok else 'missing key'}")
-    st.sidebar.markdown(f"{_status_dot(o_ok)} **OpenAI** — {'configured' if o_ok else 'missing key'}")
+    def _pill(label: str, cls: str, detail: str) -> str:
+        return (
+            f'<div class="env-pill {cls}">'
+            f'<span class="env-dot"></span>'
+            f'<strong>{label}</strong>&nbsp;— {detail}'
+            f'</div>'
+        )
     st.sidebar.markdown(
-        f"{_status_dot(ls_ok)} **LangSmith** — optional tracing"
-        if ls_ok
-        else "⚪ **LangSmith** — optional (not set)"
+        _pill("Tavily",    "ok"   if t_ok  else "warn", "configured"       if t_ok  else "missing key") +
+        _pill("OpenAI",    "ok"   if o_ok  else "warn", "configured"       if o_ok  else "missing key") +
+        _pill("LangSmith", "ok"   if ls_ok else "off",  "tracing enabled"  if ls_ok else "optional — not set"),
+        unsafe_allow_html=True,
     )
     ls_panel_project = st.sidebar.text_input(
         "LangSmith project (panel)",
@@ -441,6 +522,14 @@ st.markdown(
     <div class="hero-card">
         <h1>CiteGraph</h1>
         <p>Evidence-bound pipeline · web + OpenAlex · inline [W]/[P] citations · structured critique &amp; revise · prompt audit</p>
+        <div class="badge-row">
+            <span class="badge">Tavily</span>
+            <span class="badge">OpenAlex</span>
+            <span class="badge">LangGraph</span>
+            <span class="badge">LangChain</span>
+            <span class="badge">Critique loop</span>
+            <span class="badge">Prompt audit</span>
+        </div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -487,14 +576,24 @@ result = st.session_state.viz_result
 trace = st.session_state.viz_trace or []
 
 if result is None:
-    st.info(
-        "Configure your keys in the sidebar, enter a topic, and press **Run pipeline**. "
-        "Results, sources, and exports appear here after the first successful run."
+    st.markdown(
+        """
+        <div class="welcome-card">
+            <h3>Get started</h3>
+            <ol>
+                <li>Add <code>TAVILY_API_KEY</code> and <code>OPENAI_API_KEY</code> to your <code>.env</code> (or Streamlit secrets).</li>
+                <li>Enter a research topic above and press <strong>Run pipeline</strong>.</li>
+                <li>Results, citations, critique JSON, and the prompt-trace PDF appear here.</li>
+            </ol>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 else:
     if result.get("error"):
         st.warning(result["error"])
 
+    st.markdown('<p class="section-label">Overview</p>', unsafe_allow_html=True)
     n_web = len(result.get("web_results") or [])
     n_pap = len(result.get("papers") or [])
     iters = int(result.get("iteration") or 0)
@@ -514,7 +613,7 @@ else:
 
     if show_trace:
         st.markdown('<p class="section-label">Evidence & critique</p>', unsafe_allow_html=True)
-        t1, t2, t3 = st.tabs(["Web results", "OpenAlex works", "Critique JSON"])
+        t1, t2, t3 = st.tabs(["🌐 Web results", "📄 OpenAlex works", "🔍 Critique JSON"])
         with t1:
             if n_web:
                 for i, w in enumerate(result.get("web_results") or [], start=1):
@@ -567,7 +666,7 @@ else:
                             )
 
 st.markdown('<p class="section-label">Pipeline map</p>', unsafe_allow_html=True)
-st.caption("Critique may loop back to synthesis until approval or max rounds.")
+st.caption("Retrieval → draft → critique → revise loop (up to max rounds) → finalize.")
 _render_mermaid(_MERMAID_FLOW)
 
 _render_langsmith_panel(ls_panel_project)
