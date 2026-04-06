@@ -144,6 +144,14 @@ Create a **`.env`** file in the project root (it is gitignored). Use the variabl
 - LangSmith: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, … or the equivalent `LANGCHAIN_*` names (see **LangSmith** section)
 - Optional: `AGENT_MEMORY_DIR` — directory for episodic JSONL store (default `data/agent_memory/` under the project)
 
+## Tests
+
+```bash
+pytest tests/ -v
+```
+
+Coverage (no live APIs): **OpenAlex/Tavily clients** (mocked HTTP), **graph compile** and **node list**, **`should_revise` routing**, **execution trace** merge / step records, **source bundler** + **finalize** agents, **prompt formatters**, **CritiqueResult** schema, **LangSmith feed** latency helper. CI runs the same suite on push/PR.
+
 ## Live demo (Streamlit)
 
 ```bash
