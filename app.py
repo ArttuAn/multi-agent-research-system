@@ -524,7 +524,9 @@ def _render_langsmith_panel(project_override: str) -> None:
         hide_index=True,
         use_container_width=True,
     )
-    link_df = df[df["url"].notna() & (df["url"].astype(str).str.len() > 0)][["name", "url"]].head(12)
+    link_df = df[df["url"].notna() & (df["url"].astype(str).str.len() > 0)][
+        ["name", "url", "started_at", "status", "latency_s", "total_tokens"]
+    ].head(12)
     if not link_df.empty:
         st.markdown("**Trace links**")
         for _, row in link_df.iterrows():
