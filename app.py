@@ -1,5 +1,5 @@
 """
-Streamlit live demo for the Multi-Agent Research System.
+Streamlit live demo for CiteGraph — evidence-bound, citation-native research (Tavily + OpenAlex + critique loop).
 Run locally: streamlit run app.py
 Deploy: https://streamlit.io/cloud — set secrets TAVILY_API_KEY and OPENAI_API_KEY.
 """
@@ -420,8 +420,8 @@ def _sidebar_settings() -> tuple[int, bool, bool, str]:
 
 
 st.set_page_config(
-    page_title="Research Graph · Demo",
-    page_icon="🔬",
+    page_title="CiteGraph · Demo",
+    page_icon="📎",
     layout="wide",
     initial_sidebar_state="expanded",
 )
@@ -439,8 +439,8 @@ max_rounds, show_trace, show_step_io, ls_panel_project = _sidebar_settings()
 st.markdown(
     """
     <div class="hero-card">
-        <h1>Multi-agent research</h1>
-        <p>LangGraph orchestration · LangChain agents · Tavily + OpenAlex · cited reports with a critique loop</p>
+        <h1>CiteGraph</h1>
+        <p>Evidence-bound pipeline · web + OpenAlex · inline [W]/[P] citations · structured critique &amp; revise · prompt audit</p>
     </div>
     """,
     unsafe_allow_html=True,

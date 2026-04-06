@@ -30,5 +30,5 @@ def _core(state: ResearchState) -> dict[str, Any]:
 
 source_bundler_agent = RunnableLambda(wrap_call("source_bundler", _core)).with_config(
     run_name="SourceBundlerAgent",
-    tags=["multi-agent", "agent", "prepare", "no-llm"],
+    tags=["citegraph", "multi-agent", "agent", "prepare", "no-llm"],
 )

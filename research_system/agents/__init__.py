@@ -1,5 +1,5 @@
 """
-LangChain runnables per agent. Importing ``agent`` modules registers hooks and guardrails.
+CiteGraph — LangChain runnables per agent. Importing ``agent`` modules registers hooks and guardrails.
 """
 
 from research_system.agents.critique.agent import critique_agent

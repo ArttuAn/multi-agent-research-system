@@ -27,5 +27,5 @@ def _core(state: _PaperIn) -> dict[str, Any]:
 
 paper_research_agent = RunnableLambda(wrap_call("paper_research", _core)).with_config(
     run_name="PaperResearchAgent",
-    tags=["multi-agent", "agent", "retrieval", "openalex"],
+    tags=["citegraph", "multi-agent", "agent", "retrieval", "openalex"],
 )

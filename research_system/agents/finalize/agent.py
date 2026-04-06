@@ -24,5 +24,5 @@ def _core(state: ResearchState) -> dict[str, Any]:
 
 finalize_agent = RunnableLambda(wrap_call("finalize", _core)).with_config(
     run_name="FinalizeAgent",
-    tags=["multi-agent", "agent", "assemble", "no-llm"],
+    tags=["citegraph", "multi-agent", "agent", "assemble", "no-llm"],
 )

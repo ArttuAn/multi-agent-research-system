@@ -107,9 +107,9 @@ def openalex_work_search(
     if mailto:
         params["mailto"] = mailto
 
-    ua = "MultiAgentResearch/1.0 (+https://docs.openalex.org/)"
+    ua = "CiteGraph/1.0 (+https://docs.openalex.org/)"
     if mailto:
-        ua = f"MultiAgentResearch/1.0 (mailto:{mailto})"
+        ua = f"CiteGraph/1.0 (mailto:{mailto})"
 
     url = "https://api.openalex.org/works"
     last_response: httpx.Response | None = None

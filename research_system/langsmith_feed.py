@@ -34,8 +34,24 @@ def langsmith_api_configured() -> bool:
     return bool(os.environ.get("LANGSMITH_API_KEY") or os.environ.get("LANGCHAIN_API_KEY"))
 
 
+def _latency_seconds(r: Any) -> float | None:
+    """LangSmith ``Run`` exposes ``latency`` as a property (float) in newer SDKs; older code used ``latency()``."""
+    raw = getattr(r, "latency", None)
+    if raw is None:
+        return None
+    if callable(raw):
+        out = raw()
+    else:
+        out = raw
+    if out is None:
+        return None
+    if hasattr(out, "total_seconds"):
+        return float(out.total_seconds())  # timedelta
+    return float(out)
+
+
 def _run_to_row(r: Any) -> dict[str, Any]:
-    lat = r.latency()
+    lat = _latency_seconds(r)
     url = getattr(r, "url", None)
     return {
         "id": str(r.id),

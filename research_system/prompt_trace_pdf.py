@@ -93,7 +93,7 @@ def build_prompt_trace_pdf(
     topic: str,
     prompt_trace: list[dict[str, Any]],
     *,
-    title: str = "Multi-agent research - prompt trace",
+    title: str = "CiteGraph — prompt trace",
 ) -> bytes:
     pdf = _TracePDF()
     pdf.add_page()

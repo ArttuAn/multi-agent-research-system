@@ -23,5 +23,5 @@ def _core(state: _WebIn) -> dict[str, Any]:
 
 web_research_agent = RunnableLambda(wrap_call("web_research", _core)).with_config(
     run_name="WebResearchAgent",
-    tags=["multi-agent", "agent", "retrieval", "tavily"],
+    tags=["citegraph", "multi-agent", "agent", "retrieval", "tavily"],
 )

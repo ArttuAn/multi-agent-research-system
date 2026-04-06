@@ -1,6 +1,6 @@
-# AGENTS.md — Multi-Agent Research System
+# AGENTS.md — CiteGraph
 
-This repository uses **LangGraph** for orchestration and **LangChain** runnables per agent. Each agent has its own folder under `research_system/agents/<agent_id>/` with:
+**CiteGraph** uses **LangGraph** for orchestration and **LangChain** runnables per agent. Each agent has its own folder under `research_system/agents/<agent_id>/` with:
 
 | File | Purpose |
 |------|---------|

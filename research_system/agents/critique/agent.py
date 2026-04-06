@@ -39,5 +39,5 @@ def _core(payload: dict[str, Any]) -> CritiqueResult:
 
 critique_agent = RunnableLambda(wrap_call("critique", _core)).with_config(
     run_name="CritiqueAgent",
-    tags=["multi-agent", "agent", "llm", "quality", "hallucination"],
+    tags=["citegraph", "multi-agent", "agent", "llm", "quality", "hallucination"],
 )

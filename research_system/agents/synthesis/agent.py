@@ -53,5 +53,5 @@ def _core(payload: dict[str, Any]) -> str:
 
 synthesis_agent = RunnableLambda(wrap_call("synthesis", _core)).with_config(
     run_name="SynthesisAgent",
-    tags=["multi-agent", "agent", "llm", "report"],
+    tags=["citegraph", "multi-agent", "agent", "llm", "report"],
 )

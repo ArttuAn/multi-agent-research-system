@@ -1,14 +1,17 @@
 <p align="center">
-  <img src="docs/assets/logo.svg" width="168" height="168" alt="Multi-Agent Research System logo"/>
+  <img src="docs/assets/logo.svg" width="168" height="168" alt="CiteGraph logo"/>
 </p>
 
-<h1 align="center">Multi-Agent Research System</h1>
+<h1 align="center">CiteGraph</h1>
 
 <p align="center">
-  <strong>LangGraph · LangChain agents · Tavily · OpenAlex · Streamlit</strong>
+  <strong>Evidence-bound research pipeline</strong><br/>
+  <span>Dual-source retrieval · citation-native synthesis · critique loop · prompt audit</span>
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Niche-Evidence--bound%20citations-4338ca.svg" alt="Niche: evidence-bound citations"/>
+  &nbsp;
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
   &nbsp;
   <a href="https://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"/></a>
@@ -18,25 +21,38 @@
   <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+"/>
   &nbsp;
   <img src="https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/stack-LangGraph%20%2B%20LangChain-1e293b.svg" alt="LangGraph + LangChain"/>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ArttuAn/multi-agent-research-system"><strong>github.com/ArttuAn/multi-agent-research-system</strong></a>
+  <a href="https://github.com/ArttuAn/multi-agent-research-system"><strong>github.com/ArttuAn/multi-agent-research-system</strong></a><br/>
+  <sub>This repository implements <strong>CiteGraph</strong> (the GitHub slug predates the name).</sub>
 </p>
 
 ---
 
 <p align="center">
-  <img src="docs/assets/app-illustration.svg" width="920" alt="Illustration of the Streamlit research demo: sidebar, hero card, topic input, metrics, and pipeline strip"/>
+  <img src="docs/assets/app-illustration.svg" width="920" alt="CiteGraph Streamlit demo: sidebar, hero, topic input, metrics, pipeline"/>
 </p>
 
 <p align="center"><em>Illustrative mockup of the demo layout — run <code>streamlit run app.py</code> for the live UI.</em></p>
 
 ---
 
-Stateful multi-agent research pipeline: **web search (Tavily)** → **scholarly works ([OpenAlex](https://openalex.org/))** → **synthesized cited report (OpenAI)** → **critique agent** (structured hallucination check) with optional **revise loop**.
+**CiteGraph** is a narrow take on “agent research”: it is built for **claims you can trace**. The graph merges **open web (Tavily)** and **scholarly metadata ([OpenAlex](https://openalex.org/))** into one **numbered source index** (`[Wn]` / `[Pn]`), forces the writer to **cite inline**, runs a **structured critique** (hallucination risk, issues, revision guidance), and can **loop** until approval or a cap—plus **prompt-trace PDF** and **LangSmith** for audit.
 
 Default demo topic: **“AI regulation in Europe 2026”** (edit freely in the UI).
+
+## What makes this different from generic multi-agent research demos
+
+| Typical stack | CiteGraph |
+|---------------|-----------|
+| One RAG corpus or vague “search the web” | **Dual corpus**: news/pages *and* OpenAlex works, unified index |
+| Free-form report | **Citation-native** draft tied to `[Wn]`/`[Pn]` tokens |
+| Optional “self-critique” prose | **Schema-locked critic** (`approved`, risk, issues, guidance) + conditional **revise** edge |
+| Black-box runs | **Per-step prompt audit PDF**, Streamlit **step I/O**, **LangSmith** spans per agent |
+| Ad-hoc agent code | **Repeatable agent folders** with skills, hooks, guardrails, episodic memory ([AGENTS.md](AGENTS.md)) |
 
 ## Why LangGraph
 
@@ -87,7 +103,7 @@ flowchart LR
 # Same as LangSmith “Tracing” onboarding:
 LANGSMITH_TRACING=true
 LANGSMITH_API_KEY=your_langsmith_api_key
-LANGSMITH_PROJECT=multi-agent-proj
+LANGSMITH_PROJECT=citegraph
 LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 ```
 
@@ -95,10 +111,10 @@ LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 # Equivalent legacy names:
 LANGCHAIN_TRACING_V2=true
 LANGCHAIN_API_KEY=your_langsmith_api_key
-LANGCHAIN_PROJECT=multi-agent-proj
+LANGCHAIN_PROJECT=citegraph
 ```
 
-`LANGSMITH_PROJECT` / `LANGCHAIN_PROJECT` must match the **project name** you selected in the LangSmith sidebar (e.g. `multi-agent-proj`), or traces will land in another project / default.
+`LANGSMITH_PROJECT` / `LANGCHAIN_PROJECT` must match the **project name** you selected in the LangSmith sidebar (e.g. `citegraph`), or traces will land in another project / default.
 
 3. Run the app or `run_research(...)`. Traces show the **LangGraph** run with nested **agent** spans (`SynthesisAgent`, `CritiqueAgent`, etc.) and LLM calls.
 
