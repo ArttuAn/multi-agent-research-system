@@ -1,6 +1,38 @@
-# Multi-Agent Research System (LangGraph)
+<p align="center">
+  <img src="docs/assets/logo.svg" width="168" height="168" alt="Multi-Agent Research System logo"/>
+</p>
 
-**Repository:** [github.com/ArttuAn/multi-agent-research-system](https://github.com/ArttuAn/multi-agent-research-system)
+<h1 align="center">Multi-Agent Research System</h1>
+
+<p align="center">
+  <strong>LangGraph · LangChain agents · Tavily · OpenAlex · Streamlit</strong>
+</p>
+
+<p align="center">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"/></a>
+  &nbsp;
+  <a href="https://makeapullrequest.com"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs Welcome"/></a>
+  &nbsp;
+  <a href="./AGENTS.md"><img src="https://img.shields.io/badge/Skills-AGENTS.md-6366f1.svg" alt="Agent skills (AGENTS.md)"/></a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white" alt="Python 3.11+"/>
+  &nbsp;
+  <img src="https://img.shields.io/badge/Streamlit-FF4B4B?logo=streamlit&logoColor=white" alt="Streamlit"/>
+</p>
+
+<p align="center">
+  <a href="https://github.com/ArttuAn/multi-agent-research-system"><strong>github.com/ArttuAn/multi-agent-research-system</strong></a>
+</p>
+
+---
+
+<p align="center">
+  <img src="docs/assets/app-illustration.svg" width="920" alt="Illustration of the Streamlit research demo: sidebar, hero card, topic input, metrics, and pipeline strip"/>
+</p>
+
+<p align="center"><em>Illustrative mockup of the demo layout — run <code>streamlit run app.py</code> for the live UI.</em></p>
+
+---
 
 Stateful multi-agent research pipeline: **web search (Tavily)** → **scholarly works ([OpenAlex](https://openalex.org/))** → **synthesized cited report (OpenAI)** → **critique agent** (structured hallucination check) with optional **revise loop**.
 
@@ -143,4 +175,4 @@ The PDF builder tries to cache **DejaVu Sans** under `data/fonts/` (gitignored) 
 
 ## License
 
-MIT
+[MIT License](LICENSE) — see [`LICENSE`](LICENSE) for the full text.

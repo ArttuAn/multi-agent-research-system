@@ -6,7 +6,6 @@ Deploy: https://streamlit.io/cloud — set secrets TAVILY_API_KEY and OPENAI_API
 
 from __future__ import annotations
 
-import html
 import os
 import re
 
@@ -26,16 +25,39 @@ try:
 except Exception:
     pass
 
-_MERMAID_FLOW = """
+_MERMAID_FLOW = r"""
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "system-ui, -apple-system, 'Segoe UI', sans-serif",
+    "fontSize": "17px",
+    "primaryColor": "#e8eaf6",
+    "primaryTextColor": "#1e293b",
+    "primaryBorderColor": "#5b6cf0",
+    "secondaryColor": "#f1f5f9",
+    "tertiaryColor": "#ffffff",
+    "lineColor": "#7c8ced",
+    "clusterBkg": "#f8fafc",
+    "clusterBorder": "#cbd5e1",
+    "titleColor": "#334155"
+  },
+  "flowchart": { "curve": "basis", "padding": 18, "nodeSpacing": 42, "rankSpacing": 52 }
+}}%%
 flowchart TB
-    START([Start]) --> GW[gather_web]
-    GW --> GP[gather_papers]
-    GP --> PS[prepare_sources]
-    PS --> SY[synthesize]
-    SY --> CR[critique]
-    CR -->|revise| SY
-    CR -->|finalize| FN[finalize]
-    FN --> ENDN([End])
+    subgraph R[" Retrieval "]
+        direction TB
+        GW["Web search<br/><b>Tavily</b>"] --> GP["Scholarly works<br/><b>OpenAlex</b>"]
+        GP --> PS["Prepare<br/>source index"]
+    end
+    subgraph W[" Draft & critique "]
+        direction TB
+        SY["Synthesis<br/><i>LLM</i>"] --> CR["Critique<br/><i>LLM</i>"]
+        CR -->|revise| SY
+        CR -->|finalize| FN["Finalize<br/>report"]
+    end
+    START([Start]) --> GW
+    PS --> SY
+    FN --> ENDN([Done])
 """
 
 
@@ -47,6 +69,20 @@ def _inject_styles() -> None:
 
             html, body, [class*="css"] {
                 font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+            }
+            .stApp, .stApp p, .stApp li, .stApp label {
+                font-size: 1.0625rem;
+                line-height: 1.55;
+            }
+            section[data-testid="stSidebar"] {
+                font-size: 1.05rem;
+            }
+            section[data-testid="stSidebar"] p,
+            section[data-testid="stSidebar"] .stMarkdown {
+                font-size: 1.05rem;
+            }
+            section[data-testid="stSidebar"] [data-baseweb="slider"] label {
+                font-size: 1rem !important;
             }
             .block-container {
                 padding-top: 1.25rem;
@@ -66,7 +102,7 @@ def _inject_styles() -> None:
                 margin-bottom: 1.25rem;
             }
             .hero-card h1 {
-                font-size: 1.85rem;
+                font-size: 2.15rem;
                 font-weight: 700;
                 letter-spacing: -0.02em;
                 margin: 0 0 0.35rem 0;
@@ -74,23 +110,44 @@ def _inject_styles() -> None:
             }
             .hero-card p {
                 margin: 0;
-                font-size: 0.95rem;
-                opacity: 0.88;
-                line-height: 1.45;
+                font-size: 1.08rem;
+                opacity: 0.9;
+                line-height: 1.5;
                 color: #c7d2fe !important;
             }
             .section-label {
-                font-size: 0.72rem;
+                font-size: 0.82rem;
                 font-weight: 600;
                 text-transform: uppercase;
                 letter-spacing: 0.08em;
                 color: #64748b;
                 margin: 1.5rem 0 0.5rem 0;
             }
+            [data-testid="stMetricValue"] {
+                font-size: 1.95rem !important;
+            }
+            [data-testid="stMetricLabel"] {
+                font-size: 1.05rem !important;
+            }
+            div[data-testid="stCaption"] {
+                font-size: 0.98rem !important;
+            }
+            .stTextInput input, .stTextArea textarea {
+                font-size: 1.05rem !important;
+            }
+            button[kind] {
+                font-size: 1.02rem !important;
+            }
+            [data-baseweb="tab"] {
+                font-size: 1.05rem !important;
+            }
+            div[data-testid="stExpander"] summary, div[data-testid="stExpander"] summary p {
+                font-size: 1.05rem !important;
+            }
             .muted-footer {
-                font-size: 0.8rem;
+                font-size: 0.92rem;
                 color: #94a3b8;
-                line-height: 1.5;
+                line-height: 1.55;
                 margin-top: 2rem;
                 padding-top: 1.25rem;
                 border-top: 1px solid #e2e8f0;
@@ -106,7 +163,7 @@ def _inject_styles() -> None:
             }
             .stMarkdown pre, .stCodeBlock {
                 font-family: 'JetBrains Mono', monospace !important;
-                font-size: 0.78rem !important;
+                font-size: 0.88rem !important;
                 border-radius: 8px !important;
             }
             div[data-testid="stVerticalBlockBorderWrapper"] {
@@ -138,6 +195,7 @@ def _secrets_to_env() -> None:
             "LANGCHAIN_API_KEY",
             "LANGCHAIN_PROJECT",
             "LANGCHAIN_ENDPOINT",
+            "LANGSMITH_PROJECT_URL",
         ):
             if key in s and not os.environ.get(key):
                 os.environ[key] = str(s[key])
@@ -145,17 +203,35 @@ def _secrets_to_env() -> None:
         pass
 
 
-def _render_mermaid(diagram: str, height: int = 400) -> None:
-    safe = html.escape(diagram.strip())
+def _mermaid_embed_safe(diagram: str) -> str:
+    """Allow Mermaid markup (<br/>, <b>) while breaking out of HTML script context."""
+    return diagram.strip().replace("</script", "<\\/script").replace("</Script", "<\\/Script")
+
+
+def _render_mermaid(diagram: str, height: int = 520) -> None:
+    safe = _mermaid_embed_safe(diagram)
     page = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"/>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+<style>
+  html, body {{ margin: 0; height: 100%; background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }}
+  .wrap {{
+    padding: 20px 24px 16px;
+    box-sizing: border-box;
+    min-height: 100%;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+  }}
+  .mermaid {{ display: flex; justify-content: center; align-items: flex-start; }}
+</style>
 </head>
-<body style="margin:0;background:#f1f5f9;border-radius:12px;overflow:hidden;">
-<div class="mermaid">{safe}</div>
+<body>
+<div class="wrap">
+  <div class="mermaid">{safe}</div>
+</div>
 <script>
-  mermaid.initialize({{ startOnLoad: true, theme: "base",
-    themeVariables: {{ primaryColor: "#e0e7ff", primaryTextColor: "#1e1b4b", lineColor: "#6366f1" }} }});
+  mermaid.initialize({{ startOnLoad: true, securityLevel: "loose", fontFamily: "system-ui, sans-serif" }});
 </script>
 </body></html>"""
     components.html(page, height=height, scrolling=False)
@@ -199,7 +275,105 @@ def _render_step_trace(trace: list[dict]) -> None:
                 st.markdown(line)
 
 
-def _sidebar_settings() -> tuple[int, bool, bool]:
+@st.cache_data(ttl=90, show_spinner="Fetching LangSmith runs…")
+def _cached_langsmith_runs(project: str, limit: int) -> tuple[list[dict], str | None]:
+    from research_system.langsmith_feed import fetch_recent_root_runs
+
+    return fetch_recent_root_runs(project_name=project, limit=limit)
+
+
+def _render_langsmith_panel(project_override: str) -> None:
+    from research_system.langsmith_feed import langsmith_api_configured, resolved_project_name
+
+    st.markdown('<p class="section-label">LangSmith activity</p>', unsafe_allow_html=True)
+    st.caption(
+        "LangSmith does not publish embeddable live trace widgets for third-party pages. "
+        "This panel uses the API for simple charts; use **Open** links for the full LangSmith UI."
+    )
+    env_proj = resolved_project_name()
+    proj = (project_override or "").strip() or env_proj
+    if not langsmith_api_configured():
+        st.info(
+            "Set **LANGSMITH_API_KEY** (or **LANGCHAIN_API_KEY**) and optional **LANGSMITH_PROJECT** "
+            "to enable tracing; after you run the graph, latency and token summaries appear here."
+        )
+        return
+
+    top, btn = st.columns([4, 1])
+    with top:
+        if proj == env_proj:
+            st.caption(f"Project {proj!r} — from tracer env (override empty).")
+        else:
+            st.caption(f"Project {proj!r} — **sidebar override** (env has {env_proj!r}).")
+    with btn:
+        if st.button("Refresh", help="Drop cache and fetch latest root runs", use_container_width=True):
+            _cached_langsmith_runs.clear()
+            st.rerun()
+
+    runs, err = _cached_langsmith_runs(proj, 24)
+    if not runs:
+        if err:
+            el = err.lower()
+            if "not found" in el or "api error" in el:
+                st.error(err)
+            else:
+                st.warning(err)
+        else:
+            st.warning(
+                "No runs returned. Turn tracing on (**LANGSMITH_TRACING=true** or **LANGCHAIN_TRACING_V2=true**), "
+                "confirm the project name matches LangSmith (or use the sidebar override), then run the pipeline once."
+            )
+        return
+
+    import pandas as pd
+
+    df = pd.DataFrame(runs)
+    df["short"] = df["id"].str[:8] + " · " + df["name"].str.slice(0, 32)
+
+    c1, c2 = st.columns(2, gap="medium")
+    with c1:
+        chart_lat = df[["short", "latency_s"]].dropna()
+        if not chart_lat.empty:
+            st.markdown("**Latency (s)** — root traces")
+            st.bar_chart(chart_lat, x="latency_s", y="short", horizontal=True)
+        else:
+            st.caption("No latency data on these runs.")
+    with c2:
+        chart_tok = df[["short", "total_tokens"]].dropna()
+        chart_tok = chart_tok[chart_tok["total_tokens"].notna() & (chart_tok["total_tokens"] > 0)]
+        if not chart_tok.empty:
+            st.markdown("**Total tokens** — when reported")
+            st.bar_chart(chart_tok, x="total_tokens", y="short", horizontal=True)
+        else:
+            st.caption("Token counts not available for these runs.")
+
+    proj_url = (os.environ.get("LANGSMITH_PROJECT_URL") or "").strip()
+    if proj_url:
+        st.link_button("Open project in LangSmith", proj_url, use_container_width=False)
+
+    show = df[["started_at", "short", "name", "status", "latency_s", "total_tokens"]].copy()
+    show.columns = ["Started", "Run", "Name", "Status", "Latency (s)", "Tokens"]
+    st.dataframe(
+        show,
+        column_config={
+            "Started": st.column_config.TextColumn("Started"),
+            "Run": st.column_config.TextColumn("Run"),
+            "Name": st.column_config.TextColumn("Name"),
+            "Status": st.column_config.TextColumn("Status"),
+            "Latency (s)": st.column_config.NumberColumn("Latency (s)", format="%.3f"),
+            "Tokens": st.column_config.NumberColumn("Tokens", format="%d"),
+        },
+        hide_index=True,
+        use_container_width=True,
+    )
+    link_df = df[df["url"].notna() & (df["url"].astype(str).str.len() > 0)][["name", "url"]].head(12)
+    if not link_df.empty:
+        st.markdown("**Trace links**")
+        for _, row in link_df.iterrows():
+            st.markdown(f"- [{row['name'][:60]}]({row['url']})")
+
+
+def _sidebar_settings() -> tuple[int, bool, bool, str]:
     st.sidebar.markdown("### Settings")
     st.sidebar.caption("Tune the pipeline and what you see after a run.")
     max_rounds = st.sidebar.slider(
@@ -233,9 +407,16 @@ def _sidebar_settings() -> tuple[int, bool, bool]:
         if ls_ok
         else "⚪ **LangSmith** — optional (not set)"
     )
+    ls_panel_project = st.sidebar.text_input(
+        "LangSmith project (panel)",
+        value="",
+        placeholder="blank = env / default",
+        help="Leave blank to use LANGSMITH_PROJECT / LANGCHAIN_PROJECT / tracer default. "
+        "Must match the project name in the LangSmith UI exactly.",
+    )
     st.sidebar.divider()
     st.sidebar.caption("Docs: README · AGENTS.md · OpenAlex polite pool: `OPENALEX_MAILTO`")
-    return max_rounds, show_trace, show_step_io
+    return max_rounds, show_trace, show_step_io, ls_panel_project
 
 
 st.set_page_config(
@@ -253,7 +434,7 @@ if "viz_result" not in st.session_state:
 if "viz_trace" not in st.session_state:
     st.session_state.viz_trace = []
 
-max_rounds, show_trace, show_step_io = _sidebar_settings()
+max_rounds, show_trace, show_step_io, ls_panel_project = _sidebar_settings()
 
 st.markdown(
     """
@@ -388,6 +569,8 @@ else:
 st.markdown('<p class="section-label">Pipeline map</p>', unsafe_allow_html=True)
 st.caption("Critique may loop back to synthesis until approval or max rounds.")
 _render_mermaid(_MERMAID_FLOW)
+
+_render_langsmith_panel(ls_panel_project)
 
 if trace and show_step_io:
     st.divider()
