@@ -215,6 +215,62 @@ def _inject_styles() -> None:
             div[data-testid="stHorizontalBlock"] > div:first-child [data-testid="stButton"] button[kind="primary"] {
                 height: 2.75rem;
             }
+            /* Clean app feel — hide Streamlit footer and menu */
+            footer { visibility: hidden; }
+            #MainMenu { visibility: hidden; }
+            /* Subtle page tint so content cards have depth */
+            .stApp { background: #f4f6fa !important; }
+            /* Hero: logo + text side by side */
+            .hero-inner {
+                display: flex;
+                align-items: center;
+                gap: 1.25rem;
+            }
+            .hero-logo {
+                flex-shrink: 0;
+                width: 76px; height: 76px;
+                filter: drop-shadow(0 4px 18px rgba(99,102,241,0.45));
+            }
+            .hero-logo svg { width: 100%; height: 100%; display: block; }
+            .hero-text { flex: 1; min-width: 0; }
+            /* Sidebar brand header */
+            .sidebar-brand {
+                display: flex;
+                align-items: center;
+                gap: 0.65rem;
+                padding: 0.1rem 0 0.85rem 0;
+                margin-bottom: 0.5rem;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .sidebar-brand svg { width: 34px; height: 34px; flex-shrink: 0; border-radius: 8px; }
+            .sidebar-brand-name {
+                font-size: 1.1rem; font-weight: 700;
+                color: #3730a3; letter-spacing: -0.02em; line-height: 1.2;
+            }
+            .sidebar-brand-tag {
+                font-size: 0.65rem; color: #94a3b8;
+                letter-spacing: 0.04em; text-transform: uppercase;
+            }
+            /* Feature grid (empty / welcome state) */
+            .feature-grid {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.65rem;
+                margin: 0.25rem 0 0.85rem 0;
+            }
+            .feature-card {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 12px;
+                padding: 1rem;
+                box-shadow: 0 1px 4px rgba(15,23,42,0.04);
+            }
+            .feature-icon { font-size: 1.3rem; margin-bottom: 0.4rem; line-height: 1; }
+            .feature-title {
+                font-size: 0.88rem; font-weight: 600;
+                color: #1e293b; margin-bottom: 0.25rem;
+            }
+            .feature-body { font-size: 0.79rem; color: #64748b; line-height: 1.5; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -635,6 +691,41 @@ def _render_past_runs(history: list[dict]) -> None:
 
 
 def _sidebar_settings() -> tuple[int, bool, bool, str]:
+    st.sidebar.markdown(
+        """
+        <div class="sidebar-brand">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" aria-hidden="true">
+              <defs>
+                <linearGradient id="sg1" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#4338ca"/>
+                  <stop offset="100%" style="stop-color:#7c3aed"/>
+                </linearGradient>
+                <linearGradient id="sg2" x1="0%" y1="100%" x2="100%" y2="0%">
+                  <stop offset="0%" style="stop-color:#6366f1"/>
+                  <stop offset="100%" style="stop-color:#a78bfa"/>
+                </linearGradient>
+              </defs>
+              <rect width="512" height="512" rx="112" fill="url(#sg1)"/>
+              <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+              <circle cx="256" cy="120" r="36" fill="url(#sg2)" stroke="#fff" stroke-width="3"/>
+              <circle cx="140" cy="300" r="32" fill="#fff" fill-opacity="0.95" stroke="#c7d2fe" stroke-width="3"/>
+              <circle cx="372" cy="300" r="32" fill="#fff" fill-opacity="0.95" stroke="#c7d2fe" stroke-width="3"/>
+              <circle cx="256" cy="380" r="28" fill="#e0e7ff" stroke="#a5b4fc" stroke-width="3"/>
+              <path d="M256 156 L160 278 M256 156 L352 278 M172 300 L244 368 M340 300 L268 368"
+                    stroke="rgba(255,255,255,0.55)" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <path d="M196 200 L176 200 L176 240 L196 240" stroke="#fde68a" stroke-width="4"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M316 200 L336 200 L336 240 L316 240" stroke="#fde68a" stroke-width="4"
+                    fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <div>
+                <div class="sidebar-brand-name">CiteGraph</div>
+                <div class="sidebar-brand-tag">Open source · MIT</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
     st.sidebar.markdown("### Settings")
     st.sidebar.caption("Tune the pipeline and what you see after a run.")
     max_rounds = st.sidebar.slider(
@@ -708,15 +799,50 @@ max_rounds, show_trace, show_step_io, ls_panel_project = _sidebar_settings()
 st.markdown(
     """
     <div class="hero-card">
-        <h1>CiteGraph</h1>
-        <p>Evidence-bound pipeline · web + OpenAlex · inline [W]/[P] citations · structured critique &amp; revise · prompt audit</p>
-        <div class="badge-row">
-            <span class="badge">Tavily</span>
-            <span class="badge">OpenAlex</span>
-            <span class="badge">LangGraph</span>
-            <span class="badge">LangChain</span>
-            <span class="badge">Critique loop</span>
-            <span class="badge">Prompt audit</span>
+        <div class="hero-inner">
+            <div class="hero-logo">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="CiteGraph logo">
+                  <defs>
+                    <linearGradient id="hg1" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" style="stop-color:#4338ca"/>
+                      <stop offset="100%" style="stop-color:#7c3aed"/>
+                    </linearGradient>
+                    <linearGradient id="hg2" x1="0%" y1="100%" x2="100%" y2="0%">
+                      <stop offset="0%" style="stop-color:#6366f1"/>
+                      <stop offset="100%" style="stop-color:#a78bfa"/>
+                    </linearGradient>
+                    <filter id="hds">
+                      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#312e81" flood-opacity="0.25"/>
+                    </filter>
+                  </defs>
+                  <rect width="512" height="512" rx="112" fill="url(#hg1)"/>
+                  <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+                  <g filter="url(#hds)">
+                    <circle cx="256" cy="120" r="36" fill="url(#hg2)" stroke="#fff" stroke-width="3"/>
+                    <circle cx="140" cy="300" r="32" fill="#fff" fill-opacity="0.95" stroke="#c7d2fe" stroke-width="3"/>
+                    <circle cx="372" cy="300" r="32" fill="#fff" fill-opacity="0.95" stroke="#c7d2fe" stroke-width="3"/>
+                    <circle cx="256" cy="380" r="28" fill="#e0e7ff" stroke="#a5b4fc" stroke-width="3"/>
+                  </g>
+                  <path d="M256 156 L160 278 M256 156 L352 278 M172 300 L244 368 M340 300 L268 368"
+                        stroke="rgba(255,255,255,0.55)" stroke-width="5" stroke-linecap="round" fill="none"/>
+                  <path d="M196 200 L176 200 L176 240 L196 240" stroke="#fde68a" stroke-width="4"
+                        fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M316 200 L336 200 L336 240 L316 240" stroke="#fde68a" stroke-width="4"
+                        fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <div class="hero-text">
+                <h1>CiteGraph</h1>
+                <p>Evidence-bound pipeline · web + OpenAlex · inline [W]/[P] citations · structured critique &amp; revise · prompt audit</p>
+                <div class="badge-row">
+                    <span class="badge">Tavily</span>
+                    <span class="badge">OpenAlex</span>
+                    <span class="badge">LangGraph</span>
+                    <span class="badge">LangChain</span>
+                    <span class="badge">Critique loop</span>
+                    <span class="badge">Prompt audit</span>
+                </div>
+            </div>
         </div>
     </div>
     """,
@@ -773,6 +899,38 @@ trace = st.session_state.viz_trace or []
 if result is None:
     st.markdown(
         """
+        <div class="feature-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔎</div>
+                <div class="feature-title">Dual-source retrieval</div>
+                <div class="feature-body">Web results via Tavily + scholarly works via OpenAlex, unified into one numbered index.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📎</div>
+                <div class="feature-title">Citation-native output</div>
+                <div class="feature-body">Every claim carries an inline [W] or [P] citation — fully traceable to the source.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔁</div>
+                <div class="feature-title">Critique &amp; revise loop</div>
+                <div class="feature-body">A schema-locked critic scores hallucination risk and sends the draft back for revision.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📋</div>
+                <div class="feature-title">Prompt audit trail</div>
+                <div class="feature-body">Every LLM call logged. Export a full prompt trace PDF for review or compliance.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <div class="feature-title">LangSmith tracing</div>
+                <div class="feature-body">Optional live tracing with latency and token charts visible right in this UI.</div>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🧠</div>
+                <div class="feature-title">Agent memory</div>
+                <div class="feature-body">Episodic JSONL store lets agents draw on prior runs — no repeated context from scratch.</div>
+            </div>
+        </div>
         <div class="welcome-card">
             <h3>Get started</h3>
             <ol>
