@@ -2,13 +2,28 @@
 
 **Repository:** [github.com/ArttuAn/multi-agent-research-system](https://github.com/ArttuAn/multi-agent-research-system)
 
-Stateful multi-agent research pipeline: **web search (Tavily)** → **academic papers (Semantic Scholar)** → **synthesized cited report (OpenAI)** → **critique agent** (structured hallucination check) with optional **revise loop**.
+Stateful multi-agent research pipeline: **web search (Tavily)** → **scholarly works ([OpenAlex](https://openalex.org/))** → **synthesized cited report (OpenAI)** → **critique agent** (structured hallucination check) with optional **revise loop**.
 
 Default demo topic: **“AI regulation in Europe 2026”** (edit freely in the UI).
 
 ## Why LangGraph
 
 This uses [LangGraph](https://github.com/langchain-ai/langgraph) for explicit graph state, conditional edges, and iteration—patterns closer to production agent orchestration than a single ReAct loop. *CrewAI* is a reasonable alternative for role-based crews; this repo standardizes on LangGraph for the graph-native control flow.
+
+## Where are the agents?
+
+Orchestration is **LangGraph** (`research_system/graph.py`). Each graph node delegates to a **LangChain** runnable in `research_system/agents/`, named for **LangSmith** (`run_name` + `tags`):
+
+| LangGraph node | LangChain agent | Role |
+|----------------|-----------------|------|
+| `gather_web` | `WebResearchAgent` | Tavily retrieval (`RunnableLambda`) |
+| `gather_papers` | `PaperResearchAgent` | OpenAlex works search (no API key) |
+| `prepare_sources` | `SourceBundlerAgent` | Builds shared `[Wn]` / `[Pm]` source index |
+| `synthesize` | `SynthesisAgent` | `ChatPromptTemplate` → `ChatOpenAI` → `StrOutputParser` |
+| `critique` | `CritiqueAgent` | Prompt → structured output (`CritiqueResult`) |
+| `finalize` | `FinalizeAgent` | Assembles final markdown (no LLM) |
+
+Import from code: `from research_system.agents import web_research_agent, synthesis_agent, ...`.
 
 ## Architecture
 
@@ -23,11 +38,39 @@ flowchart LR
 ```
 
 - **gather_web**: Tavily `search` API (advanced depth).
-- **gather_papers**: Semantic Scholar Graph API `paper/search` (no key required; optional `SEMANTIC_SCHOLAR_API_KEY` for higher limits).
+- **gather_papers**: [OpenAlex](https://openalex.org/) `works` search API — **no API key**. Set **`OPENALEX_MAILTO`** in `.env` to your email for the [polite pool](https://docs.openalex.org/how-to-use-the-api/rate-limits-and-authentication) (better rate limits). The client **retries with backoff** on HTTP 429.
 - **prepare_sources**: Builds a numbered index `[W1]…`, `[P1]…` so the writer and critic share the same evidence bundle.
 - **synthesize**: LLM emits markdown with mandatory inline `[Wn]` / `[Pm]` citations.
 - **critique**: Structured output (`approved`, `hallucination_risk`, `issues`, `revision_guidance`) comparing the draft to the source index only.
 - **finalize**: Appends critique summary to the delivered report.
+
+## LangSmith (monitoring)
+
+1. Create a project and API key at [smith.langchain.com](https://smith.langchain.com/).
+2. In `.env` (or Streamlit secrets), use **either** the names from the LangSmith UI **or** the LangChain-style names (the SDK checks `LANGSMITH_*` first, then `LANGCHAIN_*`):
+
+```bash
+# Same as LangSmith “Tracing” onboarding:
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=your_langsmith_api_key
+LANGSMITH_PROJECT=multi-agent-proj
+LANGSMITH_ENDPOINT=https://api.smith.langchain.com
+```
+
+```bash
+# Equivalent legacy names:
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langsmith_api_key
+LANGCHAIN_PROJECT=multi-agent-proj
+```
+
+`LANGSMITH_PROJECT` / `LANGCHAIN_PROJECT` must match the **project name** you selected in the LangSmith sidebar (e.g. `multi-agent-proj`), or traces will land in another project / default.
+
+3. Run the app or `run_research(...)`. Traces show the **LangGraph** run with nested **agent** spans (`SynthesisAgent`, `CritiqueAgent`, etc.) and LLM calls.
+
+**Versus the LangSmith docs snippet:** you do **not** need `@traceable` on every function here. This repo uses **LangChain runnables** (`RunnableLambda`, `ChatPromptTemplate | ChatOpenAI`, etc.); they emit runs automatically when tracing is enabled.
+
+`langsmith` is listed in `requirements.txt`. The Streamlit app clears LangSmith’s env-var cache after each `load_dotenv` so `.env` edits apply on refresh; if traces still look stale, restart Streamlit once.
 
 ## Setup
 
@@ -36,14 +79,19 @@ python -m venv .venv
 .venv\Scripts\activate   # Windows
 # source .venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
-copy .env.example .env   # Windows; use cp on Unix
 ```
 
-Fill in `.env`:
+Create a **`.env`** file in the project root (it is gitignored). Use the variables below and in the **LangSmith** section above.
+
+**Required**
 
 - `TAVILY_API_KEY` — [Tavily](https://tavily.com/)
 - `OPENAI_API_KEY` — OpenAI API
-- Optional: `OPENAI_MODEL` (default `gpt-4o-mini`), `SEMANTIC_SCHOLAR_API_KEY`
+
+**Optional**
+
+- `OPENAI_MODEL` (default `gpt-4o-mini`), `OPENALEX_MAILTO` (your email; recommended for OpenAlex)
+- LangSmith: `LANGSMITH_TRACING=true`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, … or the equivalent `LANGCHAIN_*` names (see **LangSmith** section)
 
 ## Live demo (Streamlit)
 
@@ -60,6 +108,8 @@ streamlit run app.py
 ```toml
 TAVILY_API_KEY = "..."
 OPENAI_API_KEY = "..."
+# Optional — better OpenAlex rate limits:
+# OPENALEX_MAILTO = "you@example.com"
 ```
 
 ## Programmatic use

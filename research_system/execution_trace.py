@@ -42,7 +42,7 @@ def _step_record(node: str, before: dict[str, Any], partial: dict[str, Any]) -> 
         if err:
             outputs["state_error_note"] = _clip(err, 400)
         add_check("Input `topic` non-empty", bool(inputs["topic"]), "")
-        add_check("Semantic Scholar returned ≥1 paper", len(papers) >= 1, f"{len(papers)} papers")
+        add_check("OpenAlex returned ≥1 work", len(papers) >= 1, f"{len(papers)} works")
 
     elif node == "prepare_sources":
         wr = before.get("web_results") or []

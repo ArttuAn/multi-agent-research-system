@@ -16,6 +16,17 @@ from dotenv import load_dotenv
 # override=True so edits to .env apply on each Streamlit rerun without restarting the server
 load_dotenv(override=True)
 
+# LangSmith caches env lookups; clear after reload so tracing toggles/project name updates apply without restarting Streamlit.
+try:
+    import langsmith.utils as _ls_utils
+
+    if hasattr(_ls_utils.get_env_var, "cache_clear"):
+        _ls_utils.get_env_var.cache_clear()
+    if hasattr(_ls_utils.get_tracer_project, "cache_clear"):
+        _ls_utils.get_tracer_project.cache_clear()
+except Exception:
+    pass
+
 _MERMAID_FLOW = """
 flowchart TB
     START([Start]) --> GW[gather_web]
@@ -33,7 +44,21 @@ def _secrets_to_env() -> None:
     """Map Streamlit Cloud secrets to os.environ if present."""
     try:
         s = st.secrets
-        for key in ("TAVILY_API_KEY", "OPENAI_API_KEY", "OPENAI_MODEL", "SEMANTIC_SCHOLAR_API_KEY"):
+        for key in (
+            "TAVILY_API_KEY",
+            "OPENAI_API_KEY",
+            "OPENAI_MODEL",
+            "OPENALEX_MAILTO",
+            "LANGSMITH_TRACING",
+            "LANGSMITH_TRACING_V2",
+            "LANGSMITH_API_KEY",
+            "LANGSMITH_PROJECT",
+            "LANGSMITH_ENDPOINT",
+            "LANGCHAIN_TRACING_V2",
+            "LANGCHAIN_API_KEY",
+            "LANGCHAIN_PROJECT",
+            "LANGCHAIN_ENDPOINT",
+        ):
             if key in s and not os.environ.get(key):
                 os.environ[key] = str(s[key])
     except Exception:
@@ -99,7 +124,10 @@ if "viz_trace" not in st.session_state:
     st.session_state.viz_trace = []
 
 st.title("Multi-Agent Research System")
-st.caption("LangGraph · Tavily · Semantic Scholar · synthesis + hallucination critique")
+st.caption(
+    "LangGraph orchestration · LangChain agents · Tavily + OpenAlex · "
+    "LangSmith when tracing + API key are set (see README)"
+)
 
 default_topic = "AI regulation in Europe 2026"
 topic = st.text_input("Research topic", value=default_topic, help="Edit and run a full multi-agent research pass.")
@@ -146,7 +174,7 @@ if result is not None:
                 st.markdown(f"**[W{i}]** [{w.get('title','')}]({w.get('url','')})")
                 st.caption((w.get("content") or "")[:800] + "…")
 
-        with st.expander("Retrieved papers (Semantic Scholar)"):
+        with st.expander("Retrieved works (OpenAlex)"):
             for j, p in enumerate(result.get("papers") or [], start=1):
                 st.markdown(f"**[P{j}]** {p.get('title','')}")
                 st.caption(f"{p.get('authors','')} — {p.get('year','')} — {p.get('url','')}")
@@ -168,10 +196,10 @@ elif not trace and show_step_io:
 st.divider()
 st.markdown(
     """
-**Architecture:** `gather_web` (Tavily) → `gather_papers` (Semantic Scholar) → `prepare_sources` →
+**Architecture:** `gather_web` (Tavily) → `gather_papers` (OpenAlex) → `prepare_sources` →
 `synthesize` (LLM, inline [Wn]/[Pm] citations) → `critique` (structured hallucination check) →
 conditional **revise** loop or **finalize** (append critique summary).
 
-APIs: [Tavily](https://tavily.com/) · [Semantic Scholar](https://www.semanticscholar.org/product/api)
+APIs: [Tavily](https://tavily.com/) · [OpenAlex API](https://docs.openalex.org/)
 """
 )
