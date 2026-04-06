@@ -6,8 +6,10 @@ Deploy: https://streamlit.io/cloud — set secrets TAVILY_API_KEY and OPENAI_API
 
 from __future__ import annotations
 
+import json
 import os
 import re
+from datetime import datetime
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -25,40 +27,6 @@ try:
 except Exception:
     pass
 
-_MERMAID_FLOW = r"""
-%%{init: {
-  "theme": "base",
-  "themeVariables": {
-    "fontFamily": "system-ui, -apple-system, 'Segoe UI', sans-serif",
-    "fontSize": "17px",
-    "primaryColor": "#e8eaf6",
-    "primaryTextColor": "#1e293b",
-    "primaryBorderColor": "#5b6cf0",
-    "secondaryColor": "#f1f5f9",
-    "tertiaryColor": "#ffffff",
-    "lineColor": "#7c8ced",
-    "clusterBkg": "#f8fafc",
-    "clusterBorder": "#cbd5e1",
-    "titleColor": "#334155"
-  },
-  "flowchart": { "curve": "basis", "padding": 18, "nodeSpacing": 42, "rankSpacing": 52 }
-}}%%
-flowchart TB
-    subgraph R[" Retrieval "]
-        direction TB
-        GW["Web search<br/><b>Tavily</b>"] --> GP["Scholarly works<br/><b>OpenAlex</b>"]
-        GP --> PS["Prepare<br/>source index"]
-    end
-    subgraph W[" Draft & critique "]
-        direction TB
-        SY["Synthesis<br/><i>LLM</i>"] --> CR["Critique<br/><i>LLM</i>"]
-        CR -->|revise| SY
-        CR -->|finalize| FN["Finalize<br/>report"]
-    end
-    START([Start]) --> GW
-    PS --> SY
-    FN --> ENDN([Done])
-"""
 
 
 def _inject_styles() -> None:
@@ -278,36 +246,151 @@ def _secrets_to_env() -> None:
         pass
 
 
-def _mermaid_embed_safe(diagram: str) -> str:
-    """Allow Mermaid markup (<br/>, <b>) while breaking out of HTML script context."""
-    return diagram.strip().replace("</script", "<\\/script").replace("</Script", "<\\/Script")
-
-
-def _render_mermaid(diagram: str, height: int = 520) -> None:
-    safe = _mermaid_embed_safe(diagram)
-    page = f"""<!DOCTYPE html>
+def _render_pipeline_diagram(height: int = 290) -> None:
+    page = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"/>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
 <style>
-  html, body {{ margin: 0; height: 100%; background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%); }}
-  .wrap {{
-    padding: 20px 24px 16px;
-    box-sizing: border-box;
-    min-height: 100%;
-    border-radius: 16px;
-    border: 1px solid #e2e8f0;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
-  }}
-  .mermaid {{ display: flex; justify-content: center; align-items: flex-start; }}
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    background: transparent;
+    padding: 18px 16px 14px;
+  }
+  .pipeline {
+    display: flex; align-items: center; gap: 0;
+    overflow-x: auto; padding-bottom: 4px;
+  }
+  .node-bubble {
+    display: flex; align-items: center; justify-content: center;
+    width: 50px; height: 50px; border-radius: 50%;
+    font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; flex-shrink: 0;
+    background: linear-gradient(135deg, #1e1b4b 0%, #4338ca 100%);
+    color: white; box-shadow: 0 4px 14px rgba(67,56,202,0.38);
+  }
+  .arrow {
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; width: 34px; color: #818cf8;
+  }
+  .group {
+    flex-shrink: 0; background: white;
+    border: 1.5px solid #e0e7ff; border-radius: 16px;
+    padding: 13px 13px 11px;
+    box-shadow: 0 2px 12px rgba(67,56,202,0.07);
+  }
+  .group-label {
+    font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.12em; color: #6366f1;
+    margin-bottom: 9px; padding-bottom: 6px;
+    border-bottom: 1.5px solid #e0e7ff;
+  }
+  .nodes { display: flex; flex-direction: column; gap: 0; }
+  .node {
+    display: flex; align-items: center; gap: 9px;
+    border-radius: 10px; padding: 8px 11px; min-width: 168px;
+  }
+  .node.default { background: #f8fafc; border: 1px solid #e2e8f0; }
+  .node.accent  { background: #f5f3ff; border: 1px solid #c7d2fe; }
+  .node-icon { font-size: 0.95rem; flex-shrink: 0; line-height: 1; }
+  .node-info { flex: 1; }
+  .node-name {
+    font-size: 0.76rem; font-weight: 600; color: #1e293b;
+    font-family: 'Courier New', Courier, monospace; letter-spacing: -0.01em;
+  }
+  .node-sub {
+    font-size: 0.68rem; color: #64748b; margin-top: 2px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .loop-tag {
+    font-size: 0.58rem; font-weight: 700; color: #6366f1;
+    background: #e0e7ff; border-radius: 4px; padding: 1px 5px;
+    letter-spacing: 0.02em;
+  }
+  .step-arrow {
+    display: flex; justify-content: center; align-items: center;
+    height: 16px; color: #a5b4fc; font-size: 0.7rem;
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="mermaid">{safe}</div>
+<div class="pipeline">
+  <div class="node-bubble">Start</div>
+  <div class="arrow">
+    <svg width="22" height="12" viewBox="0 0 22 12" fill="none">
+      <path d="M0 6H16M12 2L20 6L12 10" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="group">
+    <div class="group-label">Retrieval</div>
+    <div class="nodes">
+      <div class="node default">
+        <span class="node-icon">🌐</span>
+        <div class="node-info">
+          <div class="node-name">gather_web</div>
+          <div class="node-sub">Tavily search</div>
+        </div>
+      </div>
+      <div class="step-arrow">↓</div>
+      <div class="node default">
+        <span class="node-icon">📄</span>
+        <div class="node-info">
+          <div class="node-name">gather_papers</div>
+          <div class="node-sub">OpenAlex works</div>
+        </div>
+      </div>
+      <div class="step-arrow">↓</div>
+      <div class="node default">
+        <span class="node-icon">🗂</span>
+        <div class="node-info">
+          <div class="node-name">prepare_sources</div>
+          <div class="node-sub">[W] / [P] index</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">
+    <svg width="22" height="12" viewBox="0 0 22 12" fill="none">
+      <path d="M0 6H16M12 2L20 6L12 10" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="group">
+    <div class="group-label">Draft &amp; Critique</div>
+    <div class="nodes">
+      <div class="node accent">
+        <span class="node-icon">✍️</span>
+        <div class="node-info">
+          <div class="node-name">synthesize</div>
+          <div class="node-sub">LLM · inline citations</div>
+        </div>
+      </div>
+      <div class="step-arrow">↓</div>
+      <div class="node accent">
+        <span class="node-icon">🔍</span>
+        <div class="node-info">
+          <div class="node-name">critique</div>
+          <div class="node-sub">LLM · schema-locked <span class="loop-tag">↺ revise</span></div>
+        </div>
+      </div>
+      <div class="step-arrow">↓</div>
+      <div class="node default">
+        <span class="node-icon">📋</span>
+        <div class="node-info">
+          <div class="node-name">finalize</div>
+          <div class="node-sub">report assembly</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="arrow">
+    <svg width="22" height="12" viewBox="0 0 22 12" fill="none">
+      <path d="M0 6H16M12 2L20 6L12 10" stroke="currentColor" stroke-width="1.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="node-bubble">Done</div>
 </div>
-<script>
-  mermaid.initialize({{ startOnLoad: true, securityLevel: "loose", fontFamily: "system-ui, sans-serif" }});
-</script>
 </body></html>"""
     components.html(page, height=height, scrolling=False)
 
@@ -445,7 +528,108 @@ def _render_langsmith_panel(project_override: str) -> None:
     if not link_df.empty:
         st.markdown("**Trace links**")
         for _, row in link_df.iterrows():
-            st.markdown(f"- [{row['name'][:60]}]({row['url']})")
+            ts = str(row.get("started_at") or "")[:19].replace("T", " ")
+            status = str(row.get("status") or "")
+            lat = row.get("latency_s")
+            tok = row.get("total_tokens")
+            lat_str = f"{lat:.1f}s" if lat is not None else ""
+            tok_str = f"{int(tok):,} tok" if tok and tok > 0 else ""
+            status_icon = "✅" if status == "success" else ("❌" if "error" in status else "◦")
+            parts = " · ".join(p for p in [ts, lat_str, tok_str] if p)
+            label = f"{status_icon} {parts}" if parts else status_icon
+            st.markdown(f"- [{label}]({row['url']})")
+
+
+def _render_past_runs(history: list[dict]) -> None:
+    if not history:
+        return
+    st.markdown('<p class="section-label">Past runs</p>', unsafe_allow_html=True)
+    clr_col, _ = st.columns([1, 6])
+    with clr_col:
+        if st.button("Clear history", use_container_width=True):
+            st.session_state.run_history = []
+            st.rerun()
+    for entry in reversed(history):
+        topic = entry.get("topic", "Unknown topic")
+        ts = entry.get("timestamp", "")
+        r = entry.get("result") or {}
+        crit: dict = {}
+        try:
+            crit = json.loads(r.get("critique_json") or "{}")
+        except Exception:
+            pass
+        approved = crit.get("approved")
+        risk = (crit.get("hallucination_risk") or "").lower()
+        issues = crit.get("issues") or []
+        guidance = (crit.get("revision_guidance") or "")
+        n_web = len(r.get("web_results") or [])
+        n_pap = len(r.get("papers") or [])
+        iters = int(r.get("iteration") or 0)
+        if approved is True:
+            status_tag = "✅ Approved"
+        elif approved is False:
+            status_tag = "⚠️ Revised"
+        else:
+            status_tag = "• Completed"
+        label = f"**{topic[:60]}** · {ts[11:19]} · {status_tag}"
+        with st.expander(label):
+            mc1, mc2, mc3, mc4 = st.columns(4)
+            with mc1:
+                st.metric("Web hits", n_web)
+            with mc2:
+                st.metric("Papers", n_pap)
+            with mc3:
+                st.metric("Passes", iters)
+            with mc4:
+                risk_display = risk.capitalize() if risk else "—"
+                st.metric("Hallucination risk", risk_display)
+            ev_col, crit_col = st.columns([3, 2], gap="medium")
+            web_results = (r.get("web_results") or [])[:3]
+            papers = (r.get("papers") or [])[:3]
+            with ev_col:
+                st.markdown("**Key evidence**")
+                for j, w in enumerate(web_results, start=1):
+                    title = (w.get("title") or w.get("url") or "")[:70]
+                    url = w.get("url") or ""
+                    snippet = (w.get("content") or "")[:180]
+                    link = f"[{title}]({url})" if url else title
+                    st.markdown(
+                        f"<span style='color:#6366f1;font-weight:700;font-size:0.82rem'>[W{j}]</span> {link}",
+                        unsafe_allow_html=True,
+                    )
+                    if snippet:
+                        st.caption(snippet + ("…" if len(w.get("content") or "") > 180 else ""))
+                for j, p in enumerate(papers, start=1):
+                    title = (p.get("title") or "")[:70]
+                    url = p.get("url") or ""
+                    authors = (p.get("authors") or "")[:30]
+                    year = p.get("year") or ""
+                    meta = " · ".join(filter(None, [authors, str(year) if year else ""]))
+                    link = f"[{title}]({url})" if url else title
+                    st.markdown(
+                        f"<span style='color:#4f46e5;font-weight:700;font-size:0.82rem'>[P{j}]</span> {link}",
+                        unsafe_allow_html=True,
+                    )
+                    if meta:
+                        st.caption(meta)
+            with crit_col:
+                st.markdown("**Critique**")
+                st.markdown(f"Status: **{status_tag}**")
+                if risk:
+                    risk_icon = {"low": "🟢", "medium": "🟡", "high": "🔴"}.get(risk, "•")
+                    st.markdown(f"Risk: {risk_icon} **{risk.capitalize()}**")
+                if issues:
+                    st.markdown("Issues:")
+                    for iss in (issues[:3]):
+                        st.markdown(f"— {str(iss)[:80]}")
+                if guidance:
+                    st.caption(
+                        f"Guidance: {guidance[:120]}{'…' if len(guidance) > 120 else ''}"
+                    )
+            final_report = (r.get("final_report") or "").strip()
+            if final_report:
+                with st.expander("Full report"):
+                    st.markdown(final_report)
 
 
 def _sidebar_settings() -> tuple[int, bool, bool, str]:
@@ -514,6 +698,8 @@ if "viz_result" not in st.session_state:
     st.session_state.viz_result = None
 if "viz_trace" not in st.session_state:
     st.session_state.viz_trace = []
+if "run_history" not in st.session_state:
+    st.session_state.run_history = []
 
 max_rounds, show_trace, show_step_io, ls_panel_project = _sidebar_settings()
 
@@ -568,6 +754,13 @@ if run:
         tr = raw.pop("execution_trace", [])
         st.session_state.viz_result = raw
         st.session_state.viz_trace = tr
+        st.session_state.run_history.append({
+            "topic": topic,
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "result": dict(raw),
+        })
+        if len(st.session_state.run_history) > 10:
+            st.session_state.run_history = st.session_state.run_history[-10:]
         prog.progress(100, text="Done")
     finally:
         prog.empty()
@@ -667,7 +860,7 @@ else:
 
 st.markdown('<p class="section-label">Pipeline map</p>', unsafe_allow_html=True)
 st.caption("Retrieval → draft → critique → revise loop (up to max rounds) → finalize.")
-_render_mermaid(_MERMAID_FLOW)
+_render_pipeline_diagram()
 
 _render_langsmith_panel(ls_panel_project)
 
@@ -676,6 +869,10 @@ if trace and show_step_io:
     _render_step_trace(trace)
 elif not trace and show_step_io and result is not None:
     st.caption("Step I/O trace was empty for this run.")
+
+# Past runs — all history entries except the current (most recent) run
+_past = st.session_state.run_history[:-1] if result is not None else st.session_state.run_history
+_render_past_runs(_past)
 
 st.markdown(
     """
